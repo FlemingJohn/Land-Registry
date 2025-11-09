@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,8 @@ import { PropertySearch } from './PropertySearch';
 import { PropertyRegistration } from './PropertyRegistration';
 import { TransactionHistory } from './TransactionHistory';
 import { useToast } from '@/hooks/use-toast';
+import WalletConnection from './WalletConnection';
+import { ethers } from 'ethers';
 
 // Mock blockchain data structure
 interface Property {
@@ -46,6 +48,44 @@ export const LandRegistry = () => {
   const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
   const [activeTab, setActiveTab] = useState('search');
   const { toast } = useToast();
+  const [account, setAccount] = useState<string | null>(null);
+
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        const signer = await provider.getSigner();
+        const address = await signer.getAddress();
+        setAccount(address);
+      } catch (error) {
+        console.error("Error connecting to MetaMask:", error);
+      }
+    } else {
+      alert("MetaMask not detected. Please install MetaMask.");
+    }
+  };
+
+  useEffect(() => {
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length > 0) {
+        setAccount(accounts[0]);
+      } else {
+        setAccount(null);
+      }
+    };
+
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", handleAccountsChanged);
+    }
+
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+      }
+    };
+  }, []);
+
 
   const handlePropertyRegistration = (newProperty: Omit<Property, 'id' | 'registrationDate' | 'status' | 'documentHash'>) => {
     const property: Property = {
@@ -102,7 +142,7 @@ export const LandRegistry = () => {
       );
       toast({
         title: "Transfer Completed",
-        description: `Property ownership has been successfully transferred to ${newOwner}.`,
+        description: `Property ownership has been successfully transferred to ${newOwner}.`
       });
     }, 4000);
 
@@ -138,6 +178,7 @@ export const LandRegistry = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+             <WalletConnection account={account} connectWallet={connectWallet} />
               <Badge className="bg-retro-matrix text-retro-dark font-terminal border-2 border-retro-terminal">
                 NET_STATUS: ONLINE
               </Badge>
